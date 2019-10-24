@@ -11,7 +11,8 @@ import System.IO
 data State = State [Card] [Card] [Card] [Card] Bool
         deriving (Show)
 
-data Mem = Mem Int [Card]
+-- Int is the number of wins, [Card] is the cards played by the player last game in order, and Int is the accumulator for different arena types
+data Mem = Mem Int [Card] Int
 
 -- Card is a tuple consisting of a String representing its name, an Element, and an Int which is 0 < Int <= 10
 
@@ -63,8 +64,8 @@ instance Show Element where
 -- Compare the Cards to determine Winner, first argument should be for the player, 2nd for CPU; True means the player wins, False means the CPU wins
 -- The cards' elements take priority deciding the winner and size is used for ties
 
-roundWinner :: Card -> Card -> Bool
-roundWinner p c = if (cElem p) == (cElem c) then p == (roundType 1 p c) else (cElem p) > (cElem c)
+roundWinner :: Card -> Card -> Int -> Bool
+roundWinner p c acc = if (cElem p) == (cElem c) then p == (roundType acc p c) else (cElem p) > (cElem c)
 
 -- roundType is a helper for the roundWinner function that prevents ties and breaks up the monotony of the gameplay.
 -- Returns a function representative of the arena type that takes 2 cards and returns the "winning" card
@@ -123,7 +124,7 @@ cpuCard cardsToPickFrom = head cardsToPickFrom
 --- ******************************************* PLAY FUNCTIONALITY - type "go" in ghci to start *************************************
 
 play :: State -> Mem -> IO State
-play (State pWon cWon pCard cCard winner) (Mem wins oldGame) =
+play (State pWon cWon pCard cCard winner) (Mem wins oldGame acc) =
    do
       putStrLn("")
       putStrLn("A New Round is Starting!")
@@ -133,7 +134,7 @@ play (State pWon cWon pCard cCard winner) (Mem wins oldGame) =
          y <- getLine
          if (y == "y" || y == "Y")
             then do
-            play (State [] [] pcrd (changeHand ccrd oldGame) False) (Mem (wins + 1) [])
+            play (State [] [] pcrd (changeHand ccrd oldGame) False) (Mem (wins + 1) [] 1)
          else do
             return (State pWon cWon pCard cCard winner)
       else if (checkWinner pWon cWon == 2) then do
@@ -142,7 +143,7 @@ play (State pWon cWon pCard cCard winner) (Mem wins oldGame) =
               y <- getLine
               if (y == "y" || y == "Y")
                  then do
-                 play (State [] [] pcrd (changeHand ccrd oldGame) False) (Mem (wins + 1) [])
+                 play (State [] [] pcrd (changeHand ccrd oldGame) False) (Mem (wins + 1) [] 1)
               else do
                  return (State pWon cWon pCard cCard winner)
            else do
@@ -161,18 +162,18 @@ play (State pWon cWon pCard cCard winner) (Mem wins oldGame) =
                  let computerCard = (cpuCard cCard)
                  let newpCard = (removeCard chosenCard pCard)
                  let newcCard = (removeCard computerCard cCard)
-                 let winner = roundWinner chosenCard computerCard
+                 let winner = roundWinner chosenCard computerCard acc
                  if (winner) then do
                    putStrLn("You won the round!")
                    putStrLn("Your card " ++ (cName chosenCard) ++ " WON against the computer's card " ++ (cName computerCard))
-                   play (State (chosenCard:pWon) cWon newpCard newcCard winner) (Mem wins (chosenCard : oldGame))
+                   play (State (chosenCard:pWon) cWon newpCard newcCard winner) (Mem wins (chosenCard : oldGame) (acc + 1))
                  else do
                    putStrLn("You lost the round!")
                    putStrLn("Your card " ++ (cName chosenCard) ++ " LOST against the computer's card " ++ (cName computerCard))
-                   play (State pWon (computerCard:cWon) newpCard newcCard winner) (Mem wins (chosenCard : oldGame))
+                   play (State pWon (computerCard:cWon) newpCard newcCard winner) (Mem wins (chosenCard : oldGame) (acc + 1))
               else do
                  putStrLn("You don't have that card!")
-                 play (State pWon cWon pCard cCard winner) (Mem wins oldGame)
+                 play (State pWon cWon pCard cCard winner) (Mem wins oldGame acc)
 
 go :: IO State
 go = play beginState beginMem
@@ -239,4 +240,4 @@ ccrd = [w7, i9, w5, w10, i2, i7, f1, f7, w6, f4, w3, f3, i1, i6, w9]
 
 -- BEGIN STATE
 beginState = State [] [] pcrd ccrd False
-beginMem = Mem 0 []
+beginMem = Mem 0 [] 1
